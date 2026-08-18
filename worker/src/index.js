@@ -22,14 +22,14 @@ export default {
     const url = new URL(request.url);
     if (url.pathname !== "/v1/messages") return err(404, "not found", cors);
 
-    // --- 設定漏れは開いたままにせず落とす（開いた中継を作らないため） ---
-    if (!env.ANTHROPIC_API_KEY) return err(500, "ANTHROPIC_API_KEY が未設定です", cors);
+    // --- 合言葉を先に見る。通っていない相手に設定状態を教えないため ---
     if (!env.ACCESS_CODE) return err(500, "ACCESS_CODE が未設定です", cors);
-    if (!env.USAGE) return err(500, "USAGE の KV が未設定です（使用量を数えられないため停止）", cors);
-
-    // --- 合言葉 ---
     const code = request.headers.get("x-access-code") || "";
     if (!timingSafeEqual(code, env.ACCESS_CODE)) return err(401, "合言葉が違います", cors);
+
+    // --- 設定漏れは開いたままにせず落とす（開いた中継を作らないため） ---
+    if (!env.ANTHROPIC_API_KEY) return err(500, "ANTHROPIC_API_KEY が未設定です", cors);
+    if (!env.USAGE) return err(500, "USAGE の KV が未設定です（使用量を数えられないため停止）", cors);
 
     // --- リクエストの検査。素通しせず、モデルと上限を絞る ---
     let body;
