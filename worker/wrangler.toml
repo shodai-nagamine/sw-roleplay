@@ -1,0 +1,20 @@
+name = "sw-roleplay-relay"
+main = "src/index.js"
+compatibility_date = "2026-08-18"
+
+# 秘密は wrangler secret で入れる（コードにもgitにも書かない）:
+#   ANTHROPIC_API_KEY … 上流のAPIキー。課金はこのキーの持ち主に来る
+#   ACCESS_CODE       … 利用者に配る合言葉。無いと誰でも叩ける中継になる
+
+# 使用量の記録。全拠点で共有されるので KV を使う（caches.default は拠点ごとで数えられない）
+[[kv_namespaces]]
+binding = "USAGE"
+id = "63234af2dfe94b0da0b2cb26cae506a5"
+
+[vars]
+# 上限。ここを超えたらその日は 429 を返して止まる
+DAILY_OUTPUT_TOKENS = "60000"    # 全体の1日あたり出力トークン上限（約$1.5/日）
+DAILY_REQUESTS_PER_IP = "30"     # 1IPあたりの1日リクエスト数
+MAX_TOKENS_CAP = "8000"          # 1リクエストの max_tokens 上限
+ALLOWED_ORIGIN = "https://shodai-nagamine.github.io"
+ALLOWED_MODELS = "claude-opus-5,claude-sonnet-5,claude-haiku-4-5"

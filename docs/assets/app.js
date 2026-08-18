@@ -8,6 +8,9 @@ import Anthropic from "https://esm.sh/@anthropic-ai/sdk";
 
 const MODEL = "claude-opus-5";
 
+// 合言葉で使うときの中継先。APIキーはこの向こう側にあり、ブラウザには来ない。
+const RELAY_URL = "https://sw-roleplay-relay.adsb-relay.workers.dev";
+
 const ROLES = [
   "医療ソーシャルワーカー（病院）",
   "地域包括支援センターの社会福祉士",
@@ -25,6 +28,7 @@ const ROLES = [
 
 const state = {
   client: null,
+  clientMode: "",
   areas: null,
   facilities: null,
   knowledge: null,
@@ -145,6 +149,8 @@ function fillRoles() {
 function restoreKey() {
   const k = localStorage.getItem("anthropic_key");
   if (k) $("apikey").value = k;
+  const c = localStorage.getItem("access_code");
+  if (c) $("accesscode").value = c;
 }
 
 function reportVoiceSupport() {
@@ -155,16 +161,32 @@ function reportVoiceSupport() {
   $("voice-support").textContent = parts.join(" ") || "音声はブラウザ内で処理されます（Chrome/Edge で動作確認）。";
 }
 
+// 自分のAPIキーがあれば直接、無ければ合言葉で中継経由。
 function client() {
   const key = ($("apikey").value || "").trim();
-  if (!key) throw new Error("APIキーを入れてください。");
-  if (!state.client || state.client.apiKey !== key) {
-    state.client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
+  const code = ($("accesscode").value || "").trim();
+  const mode = key ? `direct:${key}` : code ? `relay:${code}` : "";
+  if (!mode) throw new Error("合言葉か、自分のClaude APIキーを入れてください。");
+  if (state.clientMode !== mode) {
+    state.client = key
+      ? new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true })
+      : new Anthropic({
+          baseURL: RELAY_URL,
+          apiKey: "via-relay",           // 中継側で本物に差し替わる
+          dangerouslyAllowBrowser: true,
+          defaultHeaders: { "x-access-code": code },
+        });
+    state.clientMode = mode;
   }
   return state.client;
 }
 
 function bindSetup() {
+  $("save-code").onclick = () => {
+    localStorage.setItem("access_code", $("accesscode").value.trim());
+    $("save-code").textContent = "保存しました";
+    setTimeout(() => ($("save-code").textContent = "保存"), 1600);
+  };
   $("save-key").onclick = () => {
     localStorage.setItem("anthropic_key", $("apikey").value.trim());
     $("save-key").textContent = "保存しました";
@@ -629,7 +651,8 @@ function inline(s) {
 }
 
 function errText(e) {
-  if (e?.status === 401) return "APIキーが正しくないようです。";
+  if (e?.status === 401) return "合言葉かAPIキーが正しくないようです。";
+  if (e?.status === 429 && /上限/.test(e?.message || "")) return e.message;
   if (e?.status === 429) return "レート制限にかかりました。少し待って再試行してください。";
   if (e?.status === 400) return `リクエストが拒否されました: ${e.message || ""}`;
   return e?.message || String(e);

@@ -207,3 +207,12 @@ button.ghost:hover { border-color: var(--accent); color: var(--accent); }
   .grid2 { grid-template-columns: 1fr; }
   .text-input { min-width: 100%; }
 }
+
+details.field summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 2px 0;
+}
+details.field summary:hover { color: var(--accent); }

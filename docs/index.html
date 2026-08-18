@@ -20,13 +20,23 @@
   <h2>1. 準備</h2>
 
   <div class="field">
-    <label for="apikey">Claude APIキー</label>
+    <label for="accesscode">合言葉</label>
     <div class="row">
+      <input type="password" id="accesscode" placeholder="配布された合言葉" autocomplete="off" spellcheck="false">
+      <button id="save-code" type="button" class="ghost">保存</button>
+    </div>
+    <p class="hint">合言葉だけで使えます。APIキーは要りません。1日あたりの利用量に上限があります。</p>
+  </div>
+
+  <details class="field">
+    <summary>自分のClaude APIキーで使う（任意）</summary>
+    <div class="row" style="margin-top:8px">
       <input type="password" id="apikey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
       <button id="save-key" type="button" class="ghost">保存</button>
     </div>
-    <p class="hint">キーはこの端末のブラウザ内(localStorage)にだけ残ります。リポジトリにも通信先にも保存されません。</p>
-  </div>
+    <p class="hint">入れた場合はそちらが優先され、上限なく使えます。キーはこの端末のブラウザ内(localStorage)にだけ残り、
+      リポジトリにも中継サーバーにも渡りません。</p>
+  </details>
 
   <div class="field">
     <label for="area">舞台にする字（北谷町）</label>
