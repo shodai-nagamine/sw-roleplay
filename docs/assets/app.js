@@ -42,6 +42,7 @@ const state = {
   clientMode: "",
   kind: "roleplay",       // roleplay | interview
   avatar: null,
+  noKnowledge: false,
   informant: "",
   guide: "",
   areas: null,
@@ -80,10 +81,8 @@ async function boot() {
   reportVoiceSupport();
   bindSetup();
 
-  if (!knowledge) {
-    note("文献の知識ベース（knowledge.json）が見つかりません。振り返りは文献の引用なしで行います。"
-       + " ローカルで `python3 scripts/build_knowledge.py` を実行すると読み込まれます。");
-  }
+  // 文献が無いことは開始のたびに伝える（ログを消すと流れてしまうため）
+  state.noKnowledge = !knowledge;
 }
 
 /* ---------- 設定画面 ---------- */
@@ -383,6 +382,10 @@ function startPlay() {
   $("play-meta").textContent =
     `${state.area.properties.label}／あなた=${state.myRole}／相手=${state.botRole}`;
   $("log").innerHTML = "";
+  if (state.noKnowledge) {
+    note("この版には文献の知識ベースが入っていないため、振り返りで文献を引用できません。"
+       + "文献つきで使うには、手元で knowledge.json を作ってローカル起動してください。");
+  }
   note(state.kind === "interview"
     ? `${state.area.properties.label}で働く${state.botRole}に話を聞きます。まずは挨拶と、何を聞きたいかを伝えてください。`
     : `舞台: ${state.area.properties.label}。あなたは${state.myRole}、相手は${state.botRole}です。声をかけてみてください。`);
