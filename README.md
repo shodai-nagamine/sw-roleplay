@@ -9,13 +9,18 @@
 
 ## 動かし方
 
+**公開版**: https://shodai-nagamine.github.io/sw-roleplay/
+Chrome か Edge で開き、自分の Claude APIキーを入れる。キーはその端末の localStorage にだけ残る。
+ただし公開版は**文献の引用ができない**（下記「公開版とローカル版の違い」）。
+
+**ローカル版**（文献つき・こちらが本番）:
+
 ```bash
 python3 scripts/build_knowledge.py   # Zotero → docs/data/knowledge.json（初回のみ）
+python3 -m http.server 8943 --directory docs
 ```
 
-そのあとローカルで `docs/` を配信する（Claude Code なら preview の `sw-roleplay`、
-手元でやるなら `python3 -m http.server 8943 --directory docs`）。
-ブラウザで開き、Claude APIキーを入れる。キーは端末の localStorage にだけ残る。
+Claude Code なら preview の `sw-roleplay` で立つ。
 
 **Chrome か Edge を使うこと。** 音声認識（Web Speech API）が Safari/Firefox では動かない。
 音声が使えない環境では「文字で打つ」に切り替えれば全機能そのまま使える。
@@ -32,19 +37,27 @@ python3 scripts/build_knowledge.py   # Zotero → docs/data/knowledge.json（初
 ロールプレイ中は応答を待たせないため thinking を切って `effort: low`、
 振り返りは `effort: high` で回している。
 
-## 公開しない理由
+## 公開版とローカル版の違い
+
+| | 公開版(GitHub Pages) | ローカル版 |
+|---|---|---|
+| ロールプレイ | 動く | 動く |
+| 振り返り（生態学的視点の整理） | 動く | 動く |
+| 文献の引用 | **できない** | Zotero 104件・ハイライト227箇所を参照 |
 
 `docs/data/knowledge.json` は **gitignore 済み**。中身はZoteroのハイライト、つまり
-論文原文の抜粋なので、公開リポジトリに置くと再配布になる。
-書誌情報だけの `bibliography.json`（事実情報なので公開可）は別に吐いてある。
+論文原文の抜粋なので、公開リポジトリに置くと再配布になる。そのため公開版では
+振り返りが「文献の引用なし」で動き、起動時に注意書きが出る。
 
-このアプリ自体をどこかに公開する場合も、`knowledge.json` を持ち出さないこと。
-持ち出さなければ振り返りは「文献の引用なし」で動く（起動時に注意書きが出る）。
+書誌情報だけの `bibliography.json`（タイトル・著者・年・DOI＝事実情報）はリポジトリに入っている。
+アプリは実行時に読んでいないが、何を読んできたかの一覧にはなるので、
+読書リストを出したくなければこのファイルを消してよい。
 
 ## 既知の制約
 
-- **APIキーはブラウザに置く方式**。自分と、キーを渡した相手しか使えない。
-  誰でも使える公開Botにするならキーをサーバー側に隠す必要がある（Cloudflare Worker等）。
+- **APIキーはブラウザに置く方式**。URLを知っていても、自分のAPIキーを持っている人しか使えない
+  （こちらの課金は発生しない）。キーを聞かずに誰でも使えるBotにするなら、
+  キーをサーバー側に隠す必要がある（Cloudflare Worker 等）。
 - 生態学的視点の枠組み（ミクロ／メゾ／エクソ／マクロ）はプロンプトに直書きしている。
   論文で別の枠組みを採るなら `playSystem()` と `runDebrief()` の system を書き換える。
 - 事例の自動生成は統計と噛み合う設定を作らせているが、**実在の事例ではない**。
