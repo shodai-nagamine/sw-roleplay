@@ -44,9 +44,17 @@
     <div id="area-facts" class="facts"></div>
   </div>
 
+  <div class="field">
+    <label>やり方</label>
+    <div class="row">
+      <label class="check"><input type="radio" name="kind" value="roleplay" checked> ロールプレイ（連携場面を演じる）</label>
+      <label class="check"><input type="radio" name="kind" value="interview"> インタビュー（聞き取りの練習）</label>
+    </div>
+  </div>
+
   <div class="grid2">
     <div class="field">
-      <label for="model">ロールプレイのモデル</label>
+      <label for="model">応答のモデル</label>
       <select id="model"></select>
     </div>
     <div class="field">
@@ -66,7 +74,23 @@
     </div>
   </div>
 
-  <div class="field">
+  <div id="informant-box" class="field" hidden>
+    <label for="informant">情報提供者（インフォーマント）</label>
+    <textarea id="informant" rows="5" placeholder="経歴・所属・立場。空のまま「作らせる」を押すと、選んだ役と字のデータから作ります。"></textarea>
+    <div class="row">
+      <button id="gen-informant" type="button" class="ghost">この役と字から人物を作らせる</button>
+      <span id="informant-status" class="status"></span>
+    </div>
+    <p class="hint">ここに書いた経歴は聞き取りの間ずっと固定され、相手はこれと矛盾しない範囲で答えます。</p>
+  </div>
+
+  <div id="guide-box" class="field" hidden>
+    <label for="guide">質問ガイド（半構造化）</label>
+    <textarea id="guide" rows="4" placeholder="1行に1項目。例)&#10;連携がうまくいったと感じた場面&#10;逆にうまくいかなかった場面と、その理由&#10;所属組織の都合が判断に影響した経験"></textarea>
+    <p class="hint">振り返りのときに、どの項目が聞けて、どれが聞けていないかを点検します。</p>
+  </div>
+
+  <div id="scenario-box" class="field">
     <label for="scenario">事例の骨子</label>
     <textarea id="scenario" rows="4" placeholder="例）80代女性・独居。近隣から「新聞がたまっている」と民生委員に連絡。要介護認定は未申請。"></textarea>
     <div class="row">
@@ -84,7 +108,7 @@
     <p class="hint" id="voice-support"></p>
   </div>
 
-  <button id="start" type="button" class="primary">ロールプレイを始める</button>
+  <button id="start" type="button" class="primary">始める</button>
   <p id="setup-error" class="error" hidden></p>
 </section>
 
@@ -93,6 +117,7 @@
   <div class="play-head">
     <h2>2. ロールプレイ</h2>
     <div id="play-meta" class="meta"></div>
+    <button id="save-csv" type="button" class="ghost">逐語をCSVで保存</button>
     <button id="end" type="button" class="ghost">終えて振り返る</button>
   </div>
 
@@ -113,11 +138,11 @@
 <!-- ========== 振り返り ========== -->
 <section id="debrief" class="panel" hidden>
   <h2>3. 振り返り</h2>
-  <p class="hint">ロールプレイの逐語を、生態学的視点（ミクロ／メゾ／エクソ／マクロ）で整理し、
-     Zoteroの文献に照らして論点を出します。引用は書誌とページを添えます。</p>
+  <p class="hint">逐語を生態学的視点（ミクロ／メゾ／エクソ／マクロ）で整理し、Zoteroの文献に照らして論点を出します。
+     インタビューのときは、先に聞き取りの技法（誘導の有無・掘り下げ・聞き漏らし）を講評します。</p>
   <div id="debrief-body" class="prose"></div>
   <div class="row">
-    <button id="back" type="button" class="ghost">ロールプレイに戻る</button>
+    <button id="back" type="button" class="ghost">続きに戻る</button>
     <button id="copy-md" type="button" class="ghost">Markdownでコピー</button>
     <span id="debrief-status" class="status"></span>
   </div>

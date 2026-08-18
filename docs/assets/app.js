@@ -39,6 +39,9 @@ const ROLES = [
 const state = {
   client: null,
   clientMode: "",
+  kind: "roleplay",       // roleplay | interview
+  informant: "",
+  guide: "",
   areas: null,
   facilities: null,
   knowledge: null,
@@ -237,8 +240,61 @@ function bindSetup() {
   document.querySelectorAll('input[name="mode"]').forEach((r) => {
     r.onchange = () => { state.mode = document.querySelector('input[name="mode"]:checked').value; };
   });
+  document.querySelectorAll('input[name="kind"]').forEach((r) => {
+    r.onchange = () => { state.kind = document.querySelector('input[name="kind"]:checked').value; applyKind(); };
+  });
+  applyKind();
   $("gen-scenario").onclick = generateScenario;
+  $("gen-informant").onclick = generateInformant;
   $("start").onclick = startPlay;
+  $("save-csv").onclick = saveCsv;
+  $("save-csv2").onclick = saveCsv;
+}
+
+function applyKind() {
+  const iv = state.kind === "interview";
+  $("informant-box").hidden = !iv;
+  $("guide-box").hidden = !iv;
+  $("scenario-box").hidden = iv;
+  $("bot-role").previousElementSibling.textContent = iv ? "話を聞く相手の役" : "相手（Bot）の役";
+  $("my-role").previousElementSibling.textContent = iv ? "あなたの立場" : "あなたの役";
+  $("start").textContent = iv ? "インタビューを始める" : "ロールプレイを始める";
+}
+
+/* ---------- 情報提供者を作る ---------- */
+
+// 聞き取りの相手は、話の途中で経歴が変わっては困る。ここで一度作って固定する。
+async function generateInformant() {
+  const btn = $("gen-informant");
+  try {
+    const c = client();
+    btn.disabled = true;
+    $("informant-status").textContent = "作成中…";
+    const p = state.area.properties;
+    const res = await c.chat.completions.create({
+      model: playModel(),
+      max_completion_tokens: 600,
+      messages: [{
+        role: "system",
+        content: "あなたは日本の保健医療福祉の現場に詳しい人です。研究面接の練習に使う架空の情報提供者を作ります。" +
+                 "実在の個人・施設を想起させる固有名詞は使いません。",
+      }, {
+        role: "user",
+        content:
+          `沖縄県北谷町の「${p.label}」で働く「${$("bot-role").value}」の人物像を作ってください。\n\n` +
+          `この区域の実際の統計:\n${areaFactsText(state.area)}\n\n` +
+          "含めるもの: 経験年数、これまでの職歴、今の所属の規模と体制、担当している範囲、" +
+          "連携について持っている考え方（できれば一つ癖のある考え）、話し方の特徴。\n" +
+          "条件: 箇条書き6行以内。名前は付けない。前置きなしで人物像だけ。",
+      }],
+    });
+    $("informant").value = (res.choices?.[0]?.message?.content || "").trim();
+    $("informant-status").textContent = "";
+  } catch (e) {
+    $("informant-status").textContent = errText(e);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /* ---------- 事例の自動生成 ---------- */
@@ -300,7 +356,12 @@ function startPlay() {
     $("setup-error").hidden = false;
     return;
   }
-  if (!$("scenario").value.trim()) {
+  if (state.kind === "interview" && !$("informant").value.trim()) {
+    $("setup-error").textContent = "情報提供者の人物像を入れるか、生成してください。";
+    $("setup-error").hidden = false;
+    return;
+  }
+  if (state.kind === "roleplay" && !$("scenario").value.trim()) {
     $("setup-error").textContent = "事例の骨子を入れるか、生成してください。";
     $("setup-error").hidden = false;
     return;
@@ -310,6 +371,8 @@ function startPlay() {
   state.myRole = $("my-role").value;
   state.botRole = $("bot-role").value;
   state.scenario = $("scenario").value.trim();
+  state.informant = $("informant").value.trim();
+  state.guide = $("guide").value.trim();
   state.transcript = [];
 
   $("setup").hidden = true;
@@ -318,13 +381,44 @@ function startPlay() {
   $("play-meta").textContent =
     `${state.area.properties.label}／あなた=${state.myRole}／相手=${state.botRole}`;
   $("log").innerHTML = "";
-  note(`舞台: ${state.area.properties.label}。あなたは${state.myRole}、相手は${state.botRole}です。声をかけてみてください。`);
+  note(state.kind === "interview"
+    ? `${state.area.properties.label}で働く${state.botRole}に話を聞きます。まずは挨拶と、何を聞きたいかを伝えてください。`
+    : `舞台: ${state.area.properties.label}。あなたは${state.myRole}、相手は${state.botRole}です。声をかけてみてください。`);
 
   bindPlay();
   setupVoice();
 }
 
 function playSystem() {
+  return state.kind === "interview" ? interviewSystem() : roleplaySystem();
+}
+
+// 聞き取りの相手。演じるのではなく「答える」に徹させるのが要点。
+function interviewSystem() {
+  const p = state.area.properties;
+  return [
+    `あなたは沖縄県北谷町の「${p.label}」で働く「${state.botRole}」です。`,
+    "研究面接を受けています。聞き手は社会福祉学の院生で、ソーシャルワーカーの連携を調べています。",
+    "",
+    "# あなたの経歴・立場（この設定から外れないこと）",
+    state.informant,
+    "",
+    "# あなたが働く地域の実際の数値",
+    areaFactsText(state.area),
+    "",
+    "# 答え方",
+    "- 一人称で、話し言葉で答える。1回の発話は3〜5文。音声で聞かれているので長すぎないこと。",
+    "- **聞かれたことに答える。** 自分から話題を広げたり、次の質問を促したりしない。",
+    "- 抽象論ではなく、自分が実際に経験した具体的な場面として語る。時期・相手の職種・何が起きたかを含める。",
+    "- 一度話した経歴・数字・エピソードは後から変えない。前に言ったことと矛盾しないようにする。",
+    "- 分からないこと、覚えていないことは「そこは覚えていない」と正直に言う。作り足さない。",
+    "- 立場上言いにくいことは、言い淀んだり一般論に逃げたりしてよい。聞き手が掘り下げたら応じる。",
+    "- 制度や理念の建前ではなく、現場でどうしているかを話す。",
+    "- 応答は発話そのものだけ。ト書き、話者名、内部の思考、XMLタグは書かない。",
+  ].join("\n");
+}
+
+function roleplaySystem() {
   const p = state.area.properties;
   return [
     `あなたは「${state.botRole}」として、日本の対人援助実践のロールプレイに参加しています。`,
@@ -346,6 +440,35 @@ function playSystem() {
     "- 文献や理論の引用はしない。振り返りの時間に別途行います。",
     "- 応答は発話そのものだけを書く。ト書き、話者名、内部の思考、XMLタグなどは書かない。",
   ].join("\n");
+}
+
+/* ---------- 逐語の書き出し（kotonoha 向け） ---------- */
+
+// kotonoha は「テキスト列＋残りの列＝外部変数」で読む。話者や通番を列にしておくと
+// 話者別・場面別の比較がそのままできる。
+function saveCsv() {
+  if (!state.transcript.length) { note("まだ会話がありません。"); return; }
+  const p = state.area.properties;
+  const rows = [["発言", "話者", "通番", "やり方", "舞台の字", "相手の役", "こちらの立場"]];
+  state.transcript.forEach((t, i) => {
+    rows.push([
+      t.text,
+      t.role === "me" ? state.myRole : state.botRole,
+      String(i + 1),
+      state.kind === "interview" ? "インタビュー" : "ロールプレイ",
+      p.label,
+      state.botRole,
+      state.myRole,
+    ]);
+  });
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  // Excel が UTF-8 と判るように BOM を付ける
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${state.kind === "interview" ? "interview" : "roleplay"}_${p.name}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function bindPlay() {
@@ -580,26 +703,41 @@ async function runDebrief() {
   if (!state.transcript.length) { note("まだ会話がありません。"); return; }
   $("play").hidden = true;
   $("debrief").hidden = false;
-  $("debrief-status").textContent = "整理しています…";
+  $("debrief-status").textContent = state.kind === "interview" ? "面接を講評しています…" : "整理しています…";
 
   const script = state.transcript
     .map((t) => `${t.role === "me" ? state.myRole : state.botRole}: ${t.text}`)
     .join("\n");
   const works = pickWorks(script);
 
+  const iv = state.kind === "interview";
   const system = [
-    "あなたは社会福祉学の指導教員です。院生が行ったロールプレイの逐語を、",
-    "**生態学的視点**（ミクロ／メゾ／エクソ／マクロの各システムと、その間の相互作用）で読み解きます。",
+    iv
+      ? "あなたは社会福祉学の指導教員です。院生が行った**研究面接**の逐語を、聞き取りの技法と内容の両面から講評します。"
+      : "あなたは社会福祉学の指導教員です。院生が行ったロールプレイの逐語を読み解きます。",
+    "分析の枠組みは**生態学的視点**（ミクロ／メゾ／エクソ／マクロの各システムと、その間の相互作用）です。",
     "院生の修士論文のテーマは「ソーシャルワーカーの連携を生態学的に検討する」です。",
     "",
     "# 書き方",
     "- 見出しつきのMarkdown。前置きは書かない。",
     "- 逐語の具体的な発言を必ず引用して、そこから論じる。抽象論だけにしない。",
-    "- 地域の統計は「マクロ／エクソの層に置かれた条件」として扱い、事例と結びつける。",
+    "- 地域の統計は「マクロ／エクソの層に置かれた条件」として扱い、語られた内容と結びつける。",
     "- 文献は与えられたものだけを使う。無いものを引かない。引用は 著者（年）の形式で、",
     "  該当のハイライトがあれば短く引き、ページがあれば添える。",
     "- 最後に「論文に向けた問い」を3つ、この逐語から実際に立てられるものだけ挙げる。",
     "",
+    ...(iv ? [
+      "# 面接の講評（生態学的な整理より前に、これを先に書く）",
+      "次の4点を、逐語の該当箇所を引きながら具体的に述べる。褒めるだけにしない。",
+      "1. **聞けたこと** — 相手の経験が具体的に語られた質問はどれか。何が効いたのか。",
+      "2. **誘導・思い込み** — 答えを先に含んだ質問、専門用語で枠をはめた質問、",
+      "   相手の言葉を自分の解釈に置き換えてしまった箇所を挙げる。無ければ無いと書く。",
+      "3. **掘り下げられた／逃した機会** — 相手が言い淀んだ、抽象論に逃げた、",
+      "   短く答えた箇所を挙げ、そこで何を聞けたはずかを具体的な質問文の形で示す。",
+      "4. **次に聞くべきこと** — この続きで最初にする質問を、そのまま使える文で3つ。",
+      state.guide ? `\n# 質問ガイドの網羅\n次の項目それぞれについて「聞けた（該当発言を引用）／部分的／聞けていない」を判定する。\n${state.guide}` : "",
+      "",
+    ] : []),
     works.length ? `# 使える文献（院生自身のZoteroライブラリとハイライト）\n${worksBlock(works)}`
                  : "# 文献\n利用できる文献データがありません。文献の引用は行わず、逐語の分析に徹してください。",
   ].join("\n");
@@ -607,8 +745,9 @@ async function runDebrief() {
   const p = state.area.properties;
   const user = [
     `## 舞台\n沖縄県北谷町「${p.label}」\n${areaFactsText(state.area)}`,
-    `## 事例\n${state.scenario}`,
-    `## 役\n院生=${state.myRole}／相手役=${state.botRole}`,
+    iv ? `## 情報提供者\n${state.informant}` : `## 事例\n${state.scenario}`,
+    iv ? `## 立場\n聞き手（院生）=${state.myRole}／話し手=${state.botRole}`
+       : `## 役\n院生=${state.myRole}／相手役=${state.botRole}`,
     `## 逐語\n${script}`,
   ].join("\n\n");
 
