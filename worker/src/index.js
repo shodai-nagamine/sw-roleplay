@@ -14,7 +14,7 @@ const UPSTREAM = "https://api.openai.com/v1/chat/completions";
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
-    const cors = corsHeaders(origin, env);
+    const cors = corsHeaders(origin, env, request.headers.get("Access-Control-Request-Headers"));
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "POST") return err(405, "POST only", cors);
@@ -110,15 +110,20 @@ async function bump(kv, key, by, ttl) {
   await kv.put(key, String(cur + by), { expirationTtl: ttl });
 }
 
-function corsHeaders(origin, env) {
+function corsHeaders(origin, env, requestedHeaders) {
   const allow = (env.ALLOWED_ORIGIN || "").split(",").map((s) => s.trim()).filter(Boolean);
   const ok = allow.includes(origin) ? origin : allow[0] || "null";
+  // 公式SDKは x-stainless-* など実装依存のヘッダを付ける。列挙すると追従できないので
+  // 要求されたヘッダをそのまま許可する。オリジンと合言葉で絞ってあるのでこれで足りる。
+  const headers =
+    requestedHeaders ||
+    "content-type, authorization, x-access-code, openai-organization, openai-project";
   return {
     "Access-Control-Allow-Origin": ok,
-    "Access-Control-Allow-Headers": "content-type, authorization, x-access-code, openai-organization, openai-project",
+    "Access-Control-Allow-Headers": headers,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Max-Age": "86400",
-    "Vary": "Origin",
+    "Vary": "Origin, Access-Control-Request-Headers",
   };
 }
 
