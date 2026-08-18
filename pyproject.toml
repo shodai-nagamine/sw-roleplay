@@ -1,0 +1,6 @@
+[project]
+name = "sw-roleplay"
+version = "0.1.0"
+description = "ソーシャルワーカーの連携を生態学的に検討するための、音声ロールプレイBot"
+requires-python = ">=3.11"
+dependencies = []

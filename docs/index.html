@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>連携ロールプレイ — ソーシャルワーカーの連携を生態学的に検討する</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="top">
+  <h1>連携ロールプレイ</h1>
+  <p class="sub">ソーシャルワーカーの連携を、北谷町の地域データを舞台に、生態学的に検討する</p>
+</header>
+
+<main>
+
+<!-- ========== 設定 ========== -->
+<section id="setup" class="panel">
+  <h2>1. 準備</h2>
+
+  <div class="field">
+    <label for="apikey">Claude APIキー</label>
+    <div class="row">
+      <input type="password" id="apikey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+      <button id="save-key" type="button" class="ghost">保存</button>
+    </div>
+    <p class="hint">キーはこの端末のブラウザ内(localStorage)にだけ残ります。リポジトリにも通信先にも保存されません。</p>
+  </div>
+
+  <div class="field">
+    <label for="area">舞台にする字（北谷町）</label>
+    <select id="area"></select>
+    <div id="area-facts" class="facts"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label for="my-role">あなたの役</label>
+      <select id="my-role"></select>
+    </div>
+    <div class="field">
+      <label for="bot-role">相手（Bot）の役</label>
+      <select id="bot-role"></select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="scenario">事例の骨子</label>
+    <textarea id="scenario" rows="4" placeholder="例）80代女性・独居。近隣から「新聞がたまっている」と民生委員に連絡。要介護認定は未申請。"></textarea>
+    <div class="row">
+      <button id="gen-scenario" type="button" class="ghost">この字のデータから事例を作らせる</button>
+      <span id="gen-status" class="status"></span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="voice-mode">進め方</label>
+    <div class="row">
+      <label class="check"><input type="radio" name="mode" value="voice" checked> 音声で話す</label>
+      <label class="check"><input type="radio" name="mode" value="text"> 文字で打つ</label>
+    </div>
+    <p class="hint" id="voice-support"></p>
+  </div>
+
+  <button id="start" type="button" class="primary">ロールプレイを始める</button>
+  <p id="setup-error" class="error" hidden></p>
+</section>
+
+<!-- ========== ロールプレイ ========== -->
+<section id="play" class="panel" hidden>
+  <div class="play-head">
+    <h2>2. ロールプレイ</h2>
+    <div id="play-meta" class="meta"></div>
+    <button id="end" type="button" class="ghost">終えて振り返る</button>
+  </div>
+
+  <div id="log" class="log" aria-live="polite"></div>
+
+  <div id="controls" class="controls">
+    <button id="mic" type="button" class="mic" aria-label="話す">
+      <span class="mic-dot"></span><span id="mic-label">押しながら話す</span>
+    </button>
+    <div class="text-input">
+      <input type="text" id="say" placeholder="発言を入力して Enter">
+      <button id="send" type="button" class="ghost">送る</button>
+    </div>
+  </div>
+  <p id="play-status" class="status"></p>
+</section>
+
+<!-- ========== 振り返り ========== -->
+<section id="debrief" class="panel" hidden>
+  <h2>3. 振り返り</h2>
+  <p class="hint">ロールプレイの逐語を、生態学的視点（ミクロ／メゾ／エクソ／マクロ）で整理し、
+     Zoteroの文献に照らして論点を出します。引用は書誌とページを添えます。</p>
+  <div id="debrief-body" class="prose"></div>
+  <div class="row">
+    <button id="back" type="button" class="ghost">ロールプレイに戻る</button>
+    <button id="copy-md" type="button" class="ghost">Markdownでコピー</button>
+    <span id="debrief-status" class="status"></span>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>統計: 総務省統計局「令和2年国勢調査」小地域集計（e-Stat 統計GIS）／
+     施設: 国土数値情報「医療機関データ」・厚生労働省「介護サービス情報公表システム」。
+     文献の要点は手元のZoteroライブラリから読み込んでいます（この端末内のみ）。</p>
+</footer>
+
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>

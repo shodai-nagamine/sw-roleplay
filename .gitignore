@@ -1,0 +1,6 @@
+# Zoteroのハイライトは論文原文の抜粋。公開リポジトリに置かない。
+docs/data/knowledge.json
+__pycache__/
+.venv/
+*.pyc
+.DS_Store
