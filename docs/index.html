@@ -29,7 +29,7 @@
   </div>
 
   <details class="field">
-    <summary>自分のClaude APIキーで使う（任意）</summary>
+    <summary>自分のOpenAI APIキーで使う（任意）</summary>
     <div class="row" style="margin-top:8px">
       <input type="password" id="apikey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
       <button id="save-key" type="button" class="ghost">保存</button>
@@ -42,6 +42,17 @@
     <label for="area">舞台にする字（北谷町）</label>
     <select id="area"></select>
     <div id="area-facts" class="facts"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label for="model">ロールプレイのモデル</label>
+      <select id="model"></select>
+    </div>
+    <div class="field">
+      <label for="model-debrief">振り返りのモデル</label>
+      <select id="model-debrief"></select>
+    </div>
   </div>
 
   <div class="grid2">

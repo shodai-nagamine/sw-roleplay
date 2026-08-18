@@ -1,4 +1,4 @@
-import Anthropic from "https://esm.sh/@anthropic-ai/sdk";
+import OpenAI from "https://esm.sh/openai";
 
 /* ============================================================
    連携ロールプレイ
@@ -6,10 +6,20 @@ import Anthropic from "https://esm.sh/@anthropic-ai/sdk";
    終わったら生態学的視点＋手元の文献で振り返る。
    ============================================================ */
 
-const MODEL = "claude-opus-5";
-
 // 合言葉で使うときの中継先。APIキーはこの向こう側にあり、ブラウザには来ない。
 const RELAY_URL = "https://sw-roleplay-relay.adsb-relay.workers.dev";
+
+// 中継が許可しているモデル（worker/wrangler.toml の ALLOWED_MODELS と揃える）。
+// ロールプレイは速さ、振り返りは深さを優先して既定を分けている。
+const MODELS = [
+  { id: "gpt-4.1-mini", label: "gpt-4.1-mini（速い・安い）" },
+  { id: "gpt-4.1", label: "gpt-4.1（標準）" },
+  { id: "gpt-5.4-mini", label: "gpt-5.4-mini" },
+  { id: "gpt-5.4", label: "gpt-5.4" },
+  { id: "gpt-5.5", label: "gpt-5.5（重い・高い）" },
+];
+const DEFAULT_PLAY_MODEL = "gpt-4.1-mini";
+const DEFAULT_DEBRIEF_MODEL = "gpt-4.1";
 
 const ROLES = [
   "医療ソーシャルワーカー（病院）",
@@ -60,6 +70,7 @@ async function boot() {
 
   fillAreas();
   fillRoles();
+  fillModels();
   restoreKey();
   reportVoiceSupport();
   bindSetup();
@@ -138,6 +149,16 @@ function centroid(geom) {
   return total ? [cx / total, cy / total] : polys[0][0][0];
 }
 
+function fillModels() {
+  const opts = MODELS.map((m) => `<option value="${m.id}">${m.label}</option>`).join("");
+  $("model").innerHTML = opts;
+  $("model-debrief").innerHTML = opts;
+  $("model").value = localStorage.getItem("model_play") || DEFAULT_PLAY_MODEL;
+  $("model-debrief").value = localStorage.getItem("model_debrief") || DEFAULT_DEBRIEF_MODEL;
+  $("model").onchange = () => localStorage.setItem("model_play", $("model").value);
+  $("model-debrief").onchange = () => localStorage.setItem("model_debrief", $("model-debrief").value);
+}
+
 function fillRoles() {
   const opts = ROLES.map((r) => `<option>${r}</option>`).join("");
   $("my-role").innerHTML = opts;
@@ -166,12 +187,12 @@ function client() {
   const key = ($("apikey").value || "").trim();
   const code = ($("accesscode").value || "").trim();
   const mode = key ? `direct:${key}` : code ? `relay:${code}` : "";
-  if (!mode) throw new Error("合言葉か、自分のClaude APIキーを入れてください。");
+  if (!mode) throw new Error("合言葉か、自分のOpenAI APIキーを入れてください。");
   if (state.clientMode !== mode) {
     state.client = key
-      ? new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true })
-      : new Anthropic({
-          baseURL: RELAY_URL,
+      ? new OpenAI({ apiKey: key, dangerouslyAllowBrowser: true })
+      : new OpenAI({
+          baseURL: RELAY_URL + "/v1",
           apiKey: "via-relay",           // 中継側で本物に差し替わる
           dangerouslyAllowBrowser: true,
           defaultHeaders: { "x-access-code": code },
@@ -179,6 +200,27 @@ function client() {
     state.clientMode = mode;
   }
   return state.client;
+}
+
+function playModel() { return $("model")?.value || DEFAULT_PLAY_MODEL; }
+function debriefModel() { return $("model-debrief")?.value || DEFAULT_DEBRIEF_MODEL; }
+
+/** 応答をストリームで受け取り、届いた分だけ onText に渡す。 */
+async function streamChat({ model, system, messages, maxTokens, onText }) {
+  const stream = await client().chat.completions.create({
+    model,
+    max_completion_tokens: maxTokens,
+    stream: true,
+    messages: [{ role: "system", content: system }, ...messages],
+  });
+  let full = "";
+  for await (const chunk of stream) {
+    const piece = chunk.choices?.[0]?.delta?.content || "";
+    if (!piece) continue;
+    full += piece;
+    onText(piece, full);
+  }
+  return full;
 }
 
 function bindSetup() {
@@ -208,14 +250,15 @@ async function generateScenario() {
     btn.disabled = true;
     $("gen-status").textContent = "作成中…";
     const p = state.area.properties;
-    const res = await c.messages.create({
-      model: MODEL,
-      max_tokens: 700,
-      output_config: { effort: "low" },
-      system:
-        "あなたは日本の地域福祉に詳しい実務者です。研修用の事例を作ります。" +
-        "実在の個人を想起させる固有名詞は使わず、支援上の要点だけを簡潔に書きます。",
+    const res = await c.chat.completions.create({
+      model: playModel(),
+      max_completion_tokens: 700,
       messages: [{
+        role: "system",
+        content:
+          "あなたは日本の地域福祉に詳しい実務者です。研修用の事例を作ります。" +
+          "実在の個人を想起させる固有名詞は使わず、支援上の要点だけを簡潔に書きます。",
+      }, {
         role: "user",
         content:
           `沖縄県北谷町の「${p.label}」を舞台に、ソーシャルワーカーの多機関連携が論点になる事例の骨子を作ってください。\n\n` +
@@ -225,7 +268,7 @@ async function generateScenario() {
           "統計の傾向（高齢化率や単身世帯率など）と噛み合う設定にする。前置きなしで骨子だけ書く。",
       }],
     });
-    $("scenario").value = res.content.find((b) => b.type === "text")?.text.trim() || "";
+    $("scenario").value = (res.choices?.[0]?.message?.content || "").trim();
     $("gen-status").textContent = "";
   } catch (e) {
     $("gen-status").textContent = errText(e);
@@ -336,27 +379,20 @@ async function turn(text) {
   let full = "";
 
   try {
-    const stream = client().messages.stream({
-      model: MODEL,
-      max_tokens: 600,
-      // 音声の応答なので待たせない。思考は切り、深さは effort で抑える。
-      thinking: { type: "disabled" },
-      output_config: { effort: "low" },
+    full = await streamChat({
+      model: playModel(),
+      maxTokens: 600,
       system: playSystem(),
       messages: state.transcript.map((t) => ({
         role: t.role === "me" ? "user" : "assistant",
         content: t.text,
       })),
+      onText: (chunk, acc) => {
+        body.textContent = acc;
+        $("log").scrollTop = $("log").scrollHeight;
+        if (state.mode === "voice") speaker.push(chunk);
+      },
     });
-
-    stream.on("text", (chunk) => {
-      full += chunk;
-      body.textContent = full;
-      $("log").scrollTop = $("log").scrollHeight;
-      if (state.mode === "voice") speaker.push(chunk);
-    });
-
-    await stream.finalMessage();
     if (state.mode === "voice") speaker.flush();
     state.transcript.push({ role: "bot", text: full });
     $("play-status").textContent = "";
@@ -581,18 +617,13 @@ async function runDebrief() {
   let full = "";
 
   try {
-    const stream = client().messages.stream({
-      model: MODEL,
-      max_tokens: 8000,
-      output_config: { effort: "high" },
+    full = await streamChat({
+      model: debriefModel(),
+      maxTokens: 8000,
       system,
       messages: [{ role: "user", content: user }],
+      onText: (_chunk, acc) => { body.innerHTML = md(acc); },
     });
-    stream.on("text", (chunk) => {
-      full += chunk;
-      body.innerHTML = md(full);
-    });
-    await stream.finalMessage();
     state.lastDebrief = full;
     $("debrief-status").textContent = works.length ? `文献 ${works.length} 件を参照` : "";
   } catch (e) {
@@ -652,6 +683,7 @@ function inline(s) {
 
 function errText(e) {
   if (e?.status === 401) return "合言葉かAPIキーが正しくないようです。";
+  if (/insufficient_quota|credit_balance/.test(e?.message || "")) return "APIの残高がありません。クレジットを追加してください。";
   if (e?.status === 429 && /上限/.test(e?.message || "")) return e.message;
   if (e?.status === 429) return "レート制限にかかりました。少し待って再試行してください。";
   if (e?.status === 400) return `リクエストが拒否されました: ${e.message || ""}`;
