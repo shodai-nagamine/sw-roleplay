@@ -367,17 +367,28 @@ function note(text) {
 
 /* ---------- 音声 ---------- */
 
+// 読み上げに使う声。getVoices() は初回に空を返すことがあるので、
+// voiceschanged で拾い直してキャッシュする。
+let jaVoice = null;
+function refreshVoices() {
+  if (!window.speechSynthesis) return;
+  const vs = speechSynthesis.getVoices();
+  jaVoice = vs.find((v) => v.lang === "ja-JP") || vs.find((v) => (v.lang || "").startsWith("ja")) || null;
+}
+refreshVoices();
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = refreshVoices;
+
 // 文が閉じた分だけ順に読み上げる。全文を待たないので会話のテンポが保てる。
 function sentenceSpeaker() {
   let buf = "";
   const say = (s) => {
     const t = s.trim();
     if (!t || !window.speechSynthesis) return;
+    if (!jaVoice) refreshVoices();
     const u = new SpeechSynthesisUtterance(t);
     u.lang = "ja-JP";
     u.rate = 1.05;
-    const v = speechSynthesis.getVoices().find((x) => x.lang === "ja-JP");
-    if (v) u.voice = v;
+    if (jaVoice) u.voice = jaVoice;
     speechSynthesis.speak(u);
   };
   return {
@@ -393,6 +404,14 @@ function sentenceSpeaker() {
   };
 }
 
+async function micReady() {
+  if (!navigator.permissions) return true;
+  try {
+    const st = (await navigator.permissions.query({ name: "microphone" })).state;
+    return st !== "denied";
+  } catch { return true; }
+}
+
 function setupVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const mic = $("mic");
@@ -404,25 +423,40 @@ function setupVoice() {
   rec.continuous = true;
 
   let heard = "";
-  let listening = false;
+  let wantListening = false;   // ユーザーが「話す」状態を望んでいるか
 
-  const start = () => {
-    if (listening) return;
-    speechSynthesis?.cancel();   // 相手が話している最中でも割り込めるように
-    heard = "";
-    try { rec.start(); } catch { /* 連打対策: すでに起動中なら無視 */ }
-    listening = true;
-    mic.classList.add("on");
-    $("mic-label").textContent = "聞いています…";
+  const paint = () => {
+    mic.classList.toggle("on", wantListening);
+    $("mic-label").textContent = wantListening ? "聞いています（押すと送信）" : "押して話す";
   };
-  const stop = () => {
-    if (!listening) return;
-    rec.stop();
-    listening = false;
-    mic.classList.remove("on");
-    $("mic-label").textContent = "押しながら話す";
+
+  const submitHeard = () => {
     const said = heard.trim();
+    heard = "";
+    $("play-status").textContent = "";
     if (said) turn(said);
+  };
+
+  const start = async () => {
+    if (wantListening) return;
+    if (!(await micReady())) {
+      $("play-status").textContent =
+        "マイクの使用がブロックされています。ブラウザのアドレスバーの設定から許可するか、「文字で打つ」に切り替えてください。";
+      return;
+    }
+    speechSynthesis?.cancel();      // 相手が話している最中でも割り込める
+    heard = "";
+    wantListening = true;
+    paint();
+    try { rec.start(); } catch { /* すでに起動中なら無視 */ }
+  };
+
+  const stop = () => {
+    if (!wantListening) return;
+    wantListening = false;
+    paint();
+    try { rec.stop(); } catch { /* noop */ }
+    submitHeard();
   };
 
   rec.onresult = (e) => {
@@ -430,16 +464,26 @@ function setupVoice() {
     for (let i = 0; i < e.results.length; i++) heard += e.results[i][0].transcript;
     $("play-status").textContent = heard;
   };
-  rec.onerror = (e) => {
-    $("play-status").textContent = e.error === "not-allowed"
-      ? "マイクの使用が許可されていません。ブラウザの設定を確認してください。"
-      : `音声認識のエラー: ${e.error}`;
-  };
-  rec.onend = () => { listening = false; mic.classList.remove("on"); $("mic-label").textContent = "押しながら話す"; };
 
-  mic.onpointerdown = (e) => { e.preventDefault(); start(); };
-  mic.onpointerup = (e) => { e.preventDefault(); stop(); };
-  mic.onpointerleave = () => stop();
+  rec.onerror = (e) => {
+    wantListening = false;
+    paint();
+    $("play-status").textContent = e.error === "not-allowed"
+      ? "マイクの使用が許可されていません。ブラウザの設定を確認するか、「文字で打つ」に切り替えてください。"
+      : e.error === "no-speech" ? "" : `音声認識のエラー: ${e.error}`;
+  };
+
+  // Chrome は無音がしばらく続くと勝手に止まる。話す気が残っているなら黙って復帰し、
+  // すでに聞き取れている分があればそれを送る（聞いた内容を捨てない）。
+  rec.onend = () => {
+    if (!wantListening) return;
+    if (heard.trim()) { wantListening = false; paint(); submitHeard(); return; }
+    try { rec.start(); } catch { wantListening = false; paint(); }
+  };
+
+  // 押しっぱなしではなく1タップで切り替える。会話中に指を離す必要がなく、
+  // ボタンから外れて途中で切れる事故も起きない。
+  mic.onclick = () => (wantListening ? stop() : start());
 }
 
 /* ---------- 振り返り ---------- */
