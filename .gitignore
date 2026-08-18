@@ -7,3 +7,7 @@ __pycache__/
 
 # 修論の読書リスト。公開しない（build_knowledge.py がローカルに生成する）
 docs/data/bibliography.json
+
+# wrangler のローカル生成物。接続元の位置情報(cf.json)やアカウントIDが入る
+worker/.wrangler/
+node_modules/
