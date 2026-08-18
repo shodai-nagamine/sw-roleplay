@@ -21,6 +21,10 @@ python3 scripts/build_knowledge.py   # Zotero → docs/data/knowledge.json（初
 python3 -m http.server 8943 --directory docs
 ```
 
+**JS や CSS を変えたら `python3 scripts/stamp.py` を実行してから push する。**
+資産のURLに内容ハッシュを打ち直す。これを忘れると、ブラウザが古いモジュールを握ったままになる
+（実際、OpenAI へ切り替えた後も旧版が動き続けて中継の旧パスを叩き、404 になった）。
+
 Claude Code なら preview の `sw-roleplay` で立つ。
 
 **Chrome か Edge を使うこと。** 音声認識（Web Speech API）が Safari/Firefox では動かない。
@@ -62,6 +66,21 @@ Claude Code なら preview の `sw-roleplay` で立つ。
 - 生態学的視点の枠組み（ミクロ／メゾ／エクソ／マクロ）はプロンプトに直書きしている。
   論文で別の枠組みを採るなら `playSystem()` と `runDebrief()` の system を書き換える。
 - 事例の自動生成は統計と噛み合う設定を作らせているが、**実在の事例ではない**。
+
+## 相手の姿（アバター）
+
+相手役が画面の左に出て、喋っている間は口が動き、聞いている間はときどきうなずく。
+狙いは実在感ではなく「相手が今どういう状態か（話している／聞いている）が一目で分かる」こと。
+
+- 造形は **Antigravity CLI（agy, gemini-3.1-pro-high）に発注**した手続き的コード（`docs/lib/avatar.js`）。
+  外部の 3D モデルファイルは使わず、Three.js のプリミティブだけで組む（jouto-walk と同じ流儀）
+- 見た目は役ごとに決まる（白衣／スーツ／カジュアル、髪型）。役名から髪と肌を決めるので、
+  同じ役なら毎回同じ人が出る
+- 口の開閉は速さの違う波を重ねたもの。**母音の判別はしていない**（Web Speech API の
+  `onboundary` は日本語で発火が不安定なため、そこに頼らない設計にした）
+- WebGL が使えない環境では姿だけ諦めて会話は続く
+
+`docs/avatar-test.html` を開くと、3体を並べて造形だけ確認できる。
 
 ## インタビューモード
 

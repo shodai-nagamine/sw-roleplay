@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>連携ロールプレイ — ソーシャルワーカーの連携を生態学的に検討する</title>
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=bb9bf65c">
 </head>
 <body>
 
@@ -121,7 +121,13 @@
     <button id="end" type="button" class="ghost">終えて振り返る</button>
   </div>
 
-  <div id="log" class="log" aria-live="polite"></div>
+  <div class="stage">
+    <div id="avatar-wrap" class="avatar-wrap">
+      <canvas id="avatar"></canvas>
+      <div id="avatar-name" class="avatar-name"></div>
+    </div>
+    <div id="log" class="log" aria-live="polite"></div>
+  </div>
 
   <div id="controls" class="controls">
     <button id="mic" type="button" class="mic" aria-label="話す">
@@ -156,6 +162,6 @@
      文献の要点は手元のZoteroライブラリから読み込んでいます（この端末内のみ）。</p>
 </footer>
 
-<script type="module" src="assets/app.js"></script>
+<script type="module" src="assets/app.js?v=f4e316b0"></script>
 </body>
 </html>

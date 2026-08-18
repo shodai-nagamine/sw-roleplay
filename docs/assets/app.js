@@ -1,4 +1,5 @@
 import OpenAI from "https://esm.sh/openai";
+import { createAvatarView } from "./avatar-view.js?v=a3583a28";
 
 /* ============================================================
    連携ロールプレイ
@@ -40,6 +41,7 @@ const state = {
   client: null,
   clientMode: "",
   kind: "roleplay",       // roleplay | interview
+  avatar: null,
   informant: "",
   guide: "",
   areas: null,
@@ -387,6 +389,7 @@ function startPlay() {
 
   bindPlay();
   setupVoice();
+  setupAvatar();
 }
 
 function playSystem() {
@@ -471,6 +474,26 @@ function saveCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+function setupAvatar() {
+  const canvas = $("avatar");
+  if (!canvas) return;
+  try {
+    if (!state.avatar) state.avatar = createAvatarView(canvas);
+    window.__avatar = state.avatar;   // 動作確認用
+    state.avatar.setRole(state.botRole);
+    $("avatar-name").textContent = state.botRole;
+    $("avatar-wrap").hidden = false;
+  } catch (e) {
+    // WebGL が使えない環境でも会話は成立するので、姿だけ諦める
+    console.warn("[avatar]", e);
+    $("avatar-wrap").hidden = true;
+  }
+}
+
+function setBotSpeaking(v) {
+  state.avatar?.setSpeaking(v);
+}
+
 function bindPlay() {
   $("send").onclick = () => submitText();
   $("say").onkeydown = (e) => { if (e.key === "Enter") submitText(); };
@@ -500,6 +523,7 @@ async function turn(text) {
 
   const speaker = sentenceSpeaker();
   let full = "";
+  setBotSpeaking(true);
 
   try {
     full = await streamChat({
@@ -519,9 +543,22 @@ async function turn(text) {
     if (state.mode === "voice") speaker.flush();
     state.transcript.push({ role: "bot", text: full });
     $("play-status").textContent = "";
+    // 読み上げが残っている間は口を止めない
+    if (state.mode === "voice" && window.speechSynthesis) {
+      const wait = setInterval(() => {
+        if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+          clearInterval(wait);
+          setBotSpeaking(false);
+        }
+      }, 150);
+      setTimeout(() => { clearInterval(wait); setBotSpeaking(false); }, 60000);
+    } else {
+      setBotSpeaking(false);
+    }
   } catch (e) {
     body.textContent = "";
     el.remove();
+    setBotSpeaking(false);
     note(`応答できませんでした: ${errText(e)}`);
     $("play-status").textContent = "";
   }
@@ -626,6 +663,7 @@ function setupVoice() {
       return;
     }
     speechSynthesis?.cancel();      // 相手が話している最中でも割り込める
+    setBotSpeaking(false);
     heard = "";
     wantListening = true;
     paint();

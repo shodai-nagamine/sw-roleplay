@@ -1,0 +1,38 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<title>アバター検収</title>
+<style>body{margin:0;background:#e9e6df} canvas{display:block}</style></head><body>
+<script type="module">
+import * as THREE from './lib/three.module.js';
+import { makeInterviewee } from './lib/avatar.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe9e6df);
+const cam = new THREE.PerspectiveCamera(35, 4/3, 0.05, 50);
+const r = new THREE.WebGLRenderer({antialias:true});
+r.setSize(800, 600); document.body.appendChild(r.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.1));
+const d = new THREE.DirectionalLight(0xffffff, 0.8); d.position.set(1.5,2.5,2); scene.add(d);
+
+const kinds = [['coat','short'],['suit','tied'],['casual','bob']];
+const built = [];
+kinds.forEach(([outfitKind, hairStyle], i) => {
+  const a = makeInterviewee({outfitKind, hairStyle});
+  a.group.position.x = (i-1) * 1.0;
+  scene.add(a.group); built.push(a);
+});
+
+// 検収用: 実寸をコンソールに出す
+const box = new THREE.Box3().setFromObject(built[1].group);
+const size = new THREE.Vector3(), center = new THREE.Vector3();
+box.getSize(size); box.getCenter(center);
+window.__report = {
+  size: [size.x,size.y,size.z].map(n=>+n.toFixed(3)),
+  min: [box.min.x,box.min.y,box.min.z].map(n=>+n.toFixed(3)),
+  max: [box.max.x,box.max.y,box.max.z].map(n=>+n.toFixed(3)),
+  parts: Object.keys(built[1].parts),
+  jawIsGroup: built[1].parts.jaw?.isObject3D === true,
+};
+cam.position.set(0, 0.45, 2.2); cam.lookAt(0, 0.35, 0);
+r.render(scene, cam);
+window.__ready = true;
+</script></body></html>
